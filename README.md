@@ -1,6 +1,6 @@
 ## 目标
 
-以robosuit/main_darias.py为主程序.
+以main_darias.py为主程序.
 生成 [Darias + Cloth] 仿真环境.
 
 ## 任务
