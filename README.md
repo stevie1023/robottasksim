@@ -16,3 +16,4 @@
 2. [Cloth建模](https://git.ias.informatik.tu-darmstadt.de/ren/ip_graspdeform/tree/master/ClothSimulation)
 3. [robosuite(本项目)原始版本](https://github.com/StanfordVL/robosuite.git)
 4. [Pybullet机器人控制器实现](https://github.com/bulletphysics/bullet3/tree/master/examples/pybullet/examples)
+5. [逆运动学解算](https://git.ias.informatik.tu-darmstadt.de/ren/robottasksim/blob/master/robosuite/controllers/baxter_ik_controller.py)
