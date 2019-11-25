@@ -198,6 +198,7 @@ class MujocoGeneratedObject(MujocoObject):
             self,
             size=None,
             pos=None,
+            quat=None,
             rgba=None,
             density=None,
             friction=None,

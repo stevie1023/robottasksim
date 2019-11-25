@@ -174,13 +174,11 @@ class SawyerStack2(SawyerEnv):
         # initialize objects of interest
         cubeA = BoxObject(
             size_min=[0.02, 0.02, 0.02],
-            pos=[0.6,-0.06,0.9],
             size_max=[0.02, 0.02, 0.02],
             rgba=[1, 0, 0, 1]
         )
         cubeB = BoxObject(
             size_min=[0.025, 0.025, 0.025],
-            pos=[0.5,-0.01,0.9],
             size_max=[0.025, 0.025, 0.025],
             rgba=[0, 1, 0, 1],
         )
@@ -194,7 +192,7 @@ class SawyerStack2(SawyerEnv):
             self.mujoco_objects,
             initializer=self.placement_initializer,
         )
-        # self.model.place_objects()
+        self.model.place_objects()
 
     def _get_reference(self):
         """

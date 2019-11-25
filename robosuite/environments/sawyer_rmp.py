@@ -5,7 +5,7 @@ from robosuite.utils.transform_utils import convert_quat
 from robosuite.environments.sawyer import SawyerEnv
 
 from robosuite.models.arenas.table_arena import TableArena
-from robosuite.models.objects import BoxObject, CylinderObject, BallObject
+from robosuite.models.objects import BoxObject
 from robosuite.models.robots import Sawyer
 from robosuite.models.tasks import ReachTask, UniformRandomSampler
 
@@ -30,7 +30,7 @@ class SawyerRmp(SawyerEnv):
             has_offscreen_renderer=True,
             render_collision_mesh=False,
             render_visual_mesh=True,
-            control_freq=10,
+            control_freq=100,
             horizon=1000,
             ignore_done=False,
             camera_name="frontview",
@@ -96,7 +96,26 @@ class SawyerRmp(SawyerEnv):
             camera_depth (bool): True if rendering RGB-D, and RGB otherwise.
         """
 
+        # settings for table top
+        self.table_full_size = table_full_size
+        self.table_friction = table_friction
+
+        # whether to show visual aid about where is the gripper
+        self.gripper_visualization = gripper_visualization
+
+        # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
+
+        # object placement initializer
+        if placement_initializer:
+            self.placement_initializer = placement_initializer
+        else:
+            self.placement_initializer = UniformRandomSampler(
+                x_range=[-0.08, 0.08],
+                y_range=[-0.08, 0.08],
+                ensure_object_boundary_in_range=False,
+                z_rotation=True,
+            )
 
         super().__init__(
             gripper_type=gripper_type,
@@ -121,7 +140,7 @@ class SawyerRmp(SawyerEnv):
 
         # information of objects
         # self.object_names = [o['object_name'] for o in self.object_metadata]
-        self.object_names = list(self.mujoco_obstacles.keys())
+        self.object_names = list(self.mujoco_objects.keys())
         self.object_site_ids = [
             self.sim.model.site_name2id(ob_name) for ob_name in self.object_names
         ]
@@ -142,35 +161,38 @@ class SawyerRmp(SawyerEnv):
         super()._load_model()
         self.mujoco_robot.set_base_xpos([0, 0, 0])
 
+        # load model for table top workspace
+        self.mujoco_arena = TableArena(
+            table_full_size=self.table_full_size, table_friction=self.table_friction
+        )
+        if self.use_indicator_object:
+            self.mujoco_arena.add_pos_indicator()
+
+        # The sawyer robot has a pedestal, we want to align it with the table
+        self.mujoco_arena.set_origin([0.16 + self.table_full_size[0] / 2, 0, 0])
+
         # initialize objects of interest
         cubeA = BoxObject(
             size=[0.02, 0.02, 0.02],
-            pos=[0, 0.1, 0.5],
+            pos=[0.5, 0., 0.9],
             rgba=[1, 0, 0, 1]
         )
-        cylinderA = CylinderObject(
-            size=[0.035, 0.20],
-            pos=[0, 0.4, 0.5],
+        cubeB = BoxObject(
+            size=[0.025, 0.025, 0.025],
+            pos=[0.8, -0.1, 1.2],
             rgba=[0, 1, 0, 1],
         )
-        self.mujoco_obstacles = OrderedDict([("cubeA", cubeA), ("cylinderA", cylinderA)])
-        self.n_obstacle = len(self.mujoco_obstacles)
-
-        ballA = BallObject(
-            size=[0.1],
-            pos=[0, 0.1, 0.1],
-            rgba=[0, 0.1, 0, 0.1],
-        )
-
-        self.mujoco_targets = OrderedDict([("ballA", ballA)])
-        self.n_target = len(self.mujoco_targets)
+        self.mujoco_objects = OrderedDict([("cubeA", cubeA), ("cubeB", cubeB)])
+        self.n_objects = len(self.mujoco_objects)
 
         # task includes arena, robot, and objects of interest
         self.model = ReachTask(
+            self.mujoco_arena,
             self.mujoco_robot,
-            self.mujoco_obstacles,
-            self.mujoco_targets
+            self.mujoco_objects,
+            initializer=self.placement_initializer,
         )
+        # self.model.place_objects()
 
     def _get_reference(self):
         """
@@ -179,16 +201,16 @@ class SawyerRmp(SawyerEnv):
         in a flatten array, which is how MuJoCo stores physical simulation data.
         """
         super()._get_reference()
-        self.cubeA_body_id = self.sim.model.body_name2id("cubeA")
-        self.CylinderA_body_id = self.sim.model.body_name2id("cylinderA")
+        self.cubeA_body_id = self.sim.model.body_name2id("cubeA_site")
+        self.cubeB_body_id = self.sim.model.body_name2id("cubeB_site")
         self.l_finger_geom_ids = [
             self.sim.model.geom_name2id(x) for x in self.gripper.left_finger_geoms
         ]
         self.r_finger_geom_ids = [
             self.sim.model.geom_name2id(x) for x in self.gripper.right_finger_geoms
         ]
-        self.cubeA_geom_id = self.sim.model.geom_name2id("cubeA")
-        self.CylinderA_geom_id = self.sim.model.geom_name2id("cylinderA")
+        self.cubeA_geom_id = self.sim.model.geom_name2id("cubeA_site")
+        self.cubeB_geom_id = self.sim.model.geom_name2id("cubeB_site")
 
     def _reset_internal(self):
         """
@@ -197,7 +219,7 @@ class SawyerRmp(SawyerEnv):
         super()._reset_internal()
 
         # reset positions of objects
-        self.model.place_objects()
+        # self.model.place_objects()
 
         # reset joint positions
         init_pos = np.array([-0.5538, -0.8208, 0.4155, 1.8409, -0.4955, 0.6482, 1.9628])
@@ -234,9 +256,68 @@ class SawyerRmp(SawyerEnv):
         return reward
 
     def staged_rewards(self):
+        """
+        Helper function to return staged rewards based on current physical states.
 
-        # return (r_reach, r_lift, r_stack)
-        return (0, 0, 0)
+        Returns:
+            r_reach (float): reward for reaching and grasping
+            r_lift (float): reward for lifting and aligning
+            r_stack (float): reward for stacking
+        """
+        # reaching is successful when the gripper site is close to
+        # the center of the cube
+        cubeA_pos = self.sim.data.body_xpos[self.cubeA_body_id]
+        cubeB_pos = self.sim.data.body_xpos[self.cubeB_body_id]
+        gripper_site_pos = self.sim.data.site_xpos[self.eef_site_id]
+        dist = np.linalg.norm(gripper_site_pos - cubeA_pos)
+        r_reach = (1 - np.tanh(10.0 * dist)) * 0.25
+
+        # collision checking
+        touch_left_finger = False
+        touch_right_finger = False
+        touch_cubeA_cubeB = False
+
+        for i in range(self.sim.data.ncon):
+            c = self.sim.data.contact[i]
+            if c.geom1 in self.l_finger_geom_ids and c.geom2 == self.cubeA_geom_id:
+                touch_left_finger = True
+            if c.geom1 == self.cubeA_geom_id and c.geom2 in self.l_finger_geom_ids:
+                touch_left_finger = True
+            if c.geom1 in self.r_finger_geom_ids and c.geom2 == self.cubeA_geom_id:
+                touch_right_finger = True
+            if c.geom1 == self.cubeA_geom_id and c.geom2 in self.r_finger_geom_ids:
+                touch_right_finger = True
+            if c.geom1 == self.cubeA_geom_id and c.geom2 == self.cubeB_geom_id:
+                touch_cubeA_cubeB = True
+            if c.geom1 == self.cubeB_geom_id and c.geom2 == self.cubeA_geom_id:
+                touch_cubeA_cubeB = True
+
+        # additional grasping reward
+        if touch_left_finger and touch_right_finger:
+            r_reach += 0.25
+
+        # lifting is successful when the cube is above the table top
+        # by a margin
+        cubeA_height = cubeA_pos[2]
+        table_height = self.table_full_size[2]
+        cubeA_lifted = cubeA_height > table_height + 0.04
+        r_lift = 1.0 if cubeA_lifted else 0.0
+
+        # Aligning is successful when cubeA is right above cubeB
+        if cubeA_lifted:
+            horiz_dist = np.linalg.norm(
+                np.array(cubeA_pos[:2]) - np.array(cubeB_pos[:2])
+            )
+            r_lift += 0.5 * (1 - np.tanh(horiz_dist))
+
+        # stacking is successful when the block is lifted and
+        # the gripper is not holding the object
+        r_stack = 0
+        not_touching = not touch_left_finger and not touch_right_finger
+        if not_touching and r_lift > 0 and touch_cubeA_cubeB:
+            r_stack = 2.0
+
+        return (r_reach, r_lift, r_stack)
 
     def _get_observation(self):
         """
@@ -275,28 +356,28 @@ class SawyerRmp(SawyerEnv):
             di["cubeA_quat"] = cubeA_quat
 
             # position and rotation of the second cube
-            CylinderA_pos = np.array(self.sim.data.body_xpos[self.CylinderA_body_id])
-            CylinderA_quat = convert_quat(
-                np.array(self.sim.data.body_xquat[self.CylinderA_body_id]), to="xyzw"
+            cubeB_pos = np.array(self.sim.data.body_xpos[self.cubeB_body_id])
+            cubeB_quat = convert_quat(
+                np.array(self.sim.data.body_xquat[self.cubeB_body_id]), to="xyzw"
             )
-            di["cylinderA_pos"] = CylinderA_pos
-            di["cylinderA_quat"] = CylinderA_quat
+            di["cubeB_pos"] = cubeB_pos
+            di["cubeB_quat"] = cubeB_quat
 
             # relative positions between gripper and cubes
             gripper_site_pos = np.array(self.sim.data.site_xpos[self.eef_site_id])
             di["gripper_to_cubeA"] = gripper_site_pos - cubeA_pos
-            di["gripper_to_CylinderA"] = gripper_site_pos - CylinderA_pos
-            di["cubeA_to_CylinderA"] = cubeA_pos - CylinderA_pos
+            di["gripper_to_cubeB"] = gripper_site_pos - cubeB_pos
+            di["cubeA_to_cubeB"] = cubeA_pos - cubeB_pos
 
             di["object-state"] = np.concatenate(
                 [
                     cubeA_pos,
                     cubeA_quat,
-                    CylinderA_pos,
-                    CylinderA_quat,
+                    cubeB_pos,
+                    cubeB_quat,
                     di["gripper_to_cubeA"],
-                    di["gripper_to_CylinderA"],
-                    di["cubeA_to_CylinderA"],
+                    di["gripper_to_cubeB"],
+                    di["cubeA_to_cubeB"],
                 ]
             )
 
