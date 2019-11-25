@@ -195,13 +195,14 @@ class MujocoGeneratedObject(MujocoObject):
     """
 
     def __init__(
-        self,
-        size=None,
-        rgba=None,
-        density=None,
-        friction=None,
-        density_range=None,
-        friction_range=None,
+            self,
+            size=None,
+            pos=None,
+            rgba=None,
+            density=None,
+            friction=None,
+            density_range=None,
+            friction_range=None,
     ):
         """
         Provides default initialization of physical attributes:
@@ -222,6 +223,8 @@ class MujocoGeneratedObject(MujocoObject):
             density_range ([float,float], optional): range for random choice
             friction_range ([float,float], optional): range for random choice
         """
+        self.pos = pos
+
         super().__init__()
         if size is None:
             self.size = [0.05, 0.05, 0.05]
@@ -265,7 +268,10 @@ class MujocoGeneratedObject(MujocoObject):
         pass
 
     def get_collision_attrib_template(self):
-        return {"pos": "0 0 0", "group": "1"}
+        if self.pos is None:
+            return {"pos": "0 0 0", "group": "1"}
+        else:
+            return {"pos": array_to_string(self.pos), "group": "1"}
 
     def get_visual_attrib_template(self):
         return {"conaffinity": "0", "contype": "0", "group": "1"}

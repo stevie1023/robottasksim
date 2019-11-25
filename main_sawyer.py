@@ -1,11 +1,11 @@
 import numpy as np
-import robosuite as suite
+# import robosuite as suite
+from robosuite import SawyerRmp
 
 if __name__ == "__main__":
 
     # initialize the task
-    env = suite.make(
-        env_name='SawyerStack2',
+    env = SawyerRmp(
         has_renderer=True,
         ignore_done=True,
         use_camera_obs=False,

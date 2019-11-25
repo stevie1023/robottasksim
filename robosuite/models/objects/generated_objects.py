@@ -335,6 +335,7 @@ class BoxObject(MujocoGeneratedObject):
         size=None,
         size_max=None,
         size_min=None,
+        pos=None,
         density=None,
         density_range=None,
         friction=None,
@@ -354,6 +355,7 @@ class BoxObject(MujocoGeneratedObject):
                                                DEFAULT_FRICTION_RANGE)
         super().__init__(
             size=size,
+            pos=pos,
             rgba=rgba,
             density_range=density_range,
             friction_range=friction_range,
@@ -390,6 +392,7 @@ class CylinderObject(MujocoGeneratedObject):
         size=None,
         size_max=None,
         size_min=None,
+        pos=None,
         density=None,
         density_range=None,
         friction=None,
@@ -409,6 +412,7 @@ class CylinderObject(MujocoGeneratedObject):
                                                DEFAULT_FRICTION_RANGE)
         super().__init__(
             size=size,
+            pos=pos,
             rgba=rgba,
             density_range=density_range,
             friction_range=friction_range,
@@ -445,6 +449,7 @@ class BallObject(MujocoGeneratedObject):
         size=None,
         size_max=None,
         size_min=None,
+        pos=None,
         density=None,
         density_range=None,
         friction=None,
@@ -464,6 +469,7 @@ class BallObject(MujocoGeneratedObject):
                                                DEFAULT_FRICTION_RANGE)
         super().__init__(
             size=size,
+            pos=pos,
             rgba=rgba,
             density_range=density_range,
             friction_range=friction_range,

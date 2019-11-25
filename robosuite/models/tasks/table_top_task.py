@@ -68,3 +68,5 @@ class TableTopTask(Task):
         for i in range(len(self.objects)):
             self.objects[i].set("pos", array_to_string(pos_arr[i]))
             self.objects[i].set("quat", array_to_string(quat_arr[i]))
+
+            print(pos_arr[i])
