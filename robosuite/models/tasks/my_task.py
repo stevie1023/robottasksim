@@ -2,14 +2,7 @@ from robosuite.models.tasks import Task, UniformRandomSampler
 from robosuite.utils.mjcf_utils import new_joint, array_to_string, new_site, new_body
 
 
-class ReachTask(Task):
-    """
-    Creates MJCF model of a tabletop task.
-
-    A tabletop task consists of one robot interacting with a variable number of
-    objects placed on the tabletop. This class combines the robot, the table
-    arena, and the objetcts into a single MJCF model.
-    """
+class MyTask(Task):
 
     def __init__(self, mujoco_arena, mujoco_robot, mujoco_objects, initializer=None):
         """
@@ -89,3 +82,4 @@ class ReachTask(Task):
             self.objects[i].set("quat", array_to_string(quat_arr[i]))
 
             print(pos_arr[i])
+

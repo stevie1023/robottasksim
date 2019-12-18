@@ -2,7 +2,7 @@ import os
 
 # Register your own environments here
 from robosuite.environments.sawyer_stack2 import SawyerStack2
-from robosuite.environments.sawyer_rmp import SawyerRmp
+from robosuite.environments.env_sawyer_rmp import Env_SawyerRmp
 
 from robosuite.environments.base import make
 from robosuite.environments.sawyer_lift import SawyerLift

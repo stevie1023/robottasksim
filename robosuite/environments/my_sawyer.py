@@ -8,7 +8,7 @@ from robosuite.models.grippers import gripper_factory
 from robosuite.models.robots import Sawyer
 
 
-class SawyerEnv(MujocoEnv):
+class mySawyerEnv(MujocoEnv):
     """Initializes a Sawyer robot environment."""
 
     def __init__(

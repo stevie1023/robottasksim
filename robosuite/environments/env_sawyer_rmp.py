@@ -2,15 +2,21 @@ from collections import OrderedDict
 import numpy as np
 
 from robosuite.utils.transform_utils import convert_quat
-from robosuite.environments.sawyer import SawyerEnv
+from robosuite.environments.my_sawyer import mySawyerEnv
 
+from robosuite.models import assets_root
 from robosuite.models.arenas.table_arena import TableArena
 from robosuite.models.objects import BoxObject
-from robosuite.models.robots import Sawyer
-from robosuite.models.tasks import ReachTask, UniformRandomSampler
+from robosuite.models.tasks import MyTask, UniformRandomSampler
+
+from scipy.misc import derivative
+
+from os.path import join as pjoin
+import pybullet as p
+import time
 
 
-class SawyerRmp(SawyerEnv):
+class Env_SawyerRmp(mySawyerEnv):
     """
     This class corresponds to the stacking task for the Sawyer robot arm.
     """
@@ -140,7 +146,7 @@ class SawyerRmp(SawyerEnv):
 
         # information of objects
         # self.object_names = [o['object_name'] for o in self.object_metadata]
-        self.object_names = list(self.mujoco_objects.keys())
+        self.object_names = list(self.mujoco_obstacle.keys())
         self.object_site_ids = [
             self.sim.model.site_name2id(ob_name) for ob_name in self.object_names
         ]
@@ -150,9 +156,10 @@ class SawyerRmp(SawyerEnv):
 
         # self.sim.data.contact # list, geom1, geom2
         self.collision_check_geom_names = self.sim.model._geom_name2id.keys()
-        self.collision_check_geom_ids = [
-            self.sim.model._geom_name2id[k] for k in self.collision_check_geom_names
-        ]
+        self.collision_check_geom_ids = [self.sim.model._geom_name2id[k] for k in self.collision_check_geom_names]
+
+        self.setup_inverse_kinematics()
+        self.jacobi_links_0 = None
 
     def _load_model(self):
         """
@@ -182,16 +189,14 @@ class SawyerRmp(SawyerEnv):
             pos=[0.8, -0.1, 1.2],
             rgba=[0, 1, 0, 1],
         )
-        self.mujoco_objects = OrderedDict([("cubeA", cubeA), ("cubeB", cubeB)])
-        self.n_objects = len(self.mujoco_objects)
+        self.mujoco_obstacle = OrderedDict([("cubeA", cubeA), ("cubeB", cubeB)])
+        self.n_obstacle = len(self.mujoco_obstacle)
 
         # task includes arena, robot, and objects of interest
-        self.model = ReachTask(
-            self.mujoco_arena,
-            self.mujoco_robot,
-            self.mujoco_objects,
-            initializer=self.placement_initializer,
-        )
+        self.model = MyTask(self.mujoco_arena,
+                            self.mujoco_robot,
+                            self.mujoco_obstacle,
+                            initializer=self.placement_initializer, )
         # self.model.place_objects()
 
     def _get_reference(self):
@@ -318,6 +323,62 @@ class SawyerRmp(SawyerEnv):
             r_stack = 2.0
 
         return (r_reach, r_lift, r_stack)
+
+    def setup_inverse_kinematics(self):
+        """
+        This function is responsible for doing any setup for inverse kinematics.
+        Inverse Kinematics maps end effector (EEF) poses to joint angles that
+        are necessary to achieve those poses.
+        """
+
+        # Set up a connection to the PyBullet simulator.
+        p.connect(p.DIRECT)
+        p.resetSimulation()
+
+        # get paths to urdfs
+        self.r_urdf = pjoin(assets_root, "bullet_data/sawyer_description/urdf/sawyer_arm.urdf")
+
+        # load the urdfs
+        self.bullet_robot = p.loadURDF(self.r_urdf, (0, 0, 0.9), useFixedBase=1)
+
+        # Simulation will update as fast as it can in real time, instead of waiting for
+        # step commands like in the non-realtime case.
+        # p.setRealTimeSimulation(1)
+
+    def get_obv_for_planning(self):
+        di = OrderedDict()
+
+        joint_pos = np.array([self.sim.data.qpos[x] for x in self._ref_joint_pos_indexes])
+        joint_vel = np.array([self.sim.data.qvel[x] for x in self._ref_joint_vel_indexes])
+        di["joint_pos"] = joint_pos
+        di["joint_vel"] = joint_vel
+
+        obstacle_pos = []
+        for i in self.mujoco_obstacle:
+            obstacle_pos.append(self.mujoco_obstacle[i].pos)
+        # cubeA_pos = np.array(self.sim.data.body_xpos[self.cubeA_body_id])
+        # cubeB_pos = np.array(self.sim.data.site_xpos[self.cubeB_body_id])
+        # obstacle_pos.append(cubeA_pos)
+        # obstacle_pos.append(cubeB_pos)
+        di["obstacle_pos"] = obstacle_pos
+
+        jacobi_links = []
+        djacobi_links = []
+        for i in range(len(joint_pos)):
+            jacobi = lambda q: np.array(p.calculateJacobian(self.bullet_robot,
+                                                            linkIndex=i,
+                                                            localPosition=[0., 0., 0.],
+                                                            objPositions=q.tolist(),
+                                                            objVelocities=[0., 0., 0., 0., 0., 0., 0.],
+                                                            objAccelerations=[0., 0., 0., 0., 0., 0., 0.]))
+            djacobi = lambda q, dq: derivative(func=jacobi, x0=q, dx=dq)
+            jacobi_links.append(jacobi)
+            djacobi_links.append(djacobi)
+
+        di["f_jcb"] = jacobi_links
+        di["f_jcb_dot"] = djacobi_links
+
+        return di
 
     def _get_observation(self):
         """

@@ -159,6 +159,15 @@ class SawyerIKController(Controller):
         Returns the current cartesian pose of the last joint of the ik robot with respect to the base frame as
         a (pos, orn) tuple where orn is a x-y-z-w quaternion
         """
+        J0 = p.calculateJacobian(self.ik_robot,
+                                 linkIndex=0,
+                                 localPosition=[0., 0., 0.],
+                                 objPositions=[0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4],
+                                 objVelocities=[0., 0., 0., 0., 0., 0., 0.],
+                                 objAccelerations=[0., 0., 0., 0., 0., 0., 0.])
+        print('J0 ',J0)
+
+
         eef_pos_in_world = np.array(p.getLinkState(self.ik_robot, 6)[0])
         eef_orn_in_world = np.array(p.getLinkState(self.ik_robot, 6)[1])
         eef_pose_in_world = T.pose2mat((eef_pos_in_world, eef_orn_in_world))
