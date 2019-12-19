@@ -158,8 +158,9 @@ class Env_SawyerRmp(mySawyerEnv):
         self.collision_check_geom_names = self.sim.model._geom_name2id.keys()
         self.collision_check_geom_ids = [self.sim.model._geom_name2id[k] for k in self.collision_check_geom_names]
 
+        self.f_jcb = None
+        self.f_jcb_dot = None
         self.setup_inverse_kinematics()
-        self.jacobi_links_0 = None
 
     def _load_model(self):
         """
@@ -341,9 +342,23 @@ class Env_SawyerRmp(mySawyerEnv):
         # load the urdfs
         self.bullet_robot = p.loadURDF(self.r_urdf, (0, 0, 0.9), useFixedBase=1)
 
+        self.f_jcb = []
+        self.f_jcb_dot = []
+        for i in range(7):
+            # Initialize the Jacobian function and its derivative of each control point
+            J = lambda q: np.array(p.calculateJacobian(self.bullet_robot,
+                                                       linkIndex=i,
+                                                       localPosition=[0., 0., 0.],
+                                                       objPositions=q.tolist(),
+                                                       objVelocities=[0., 0., 0., 0., 0., 0., 0.],
+                                                       objAccelerations=[0., 0., 0., 0., 0., 0., 0.]))
+            J_dot = lambda q, dq: derivative(func=J, x0=q, dx=dq)
+            self.f_jcb.append(J)
+            self.f_jcb_dot.append(J_dot)
+
         # Simulation will update as fast as it can in real time, instead of waiting for
         # step commands like in the non-realtime case.
-        # p.setRealTimeSimulation(1)
+        p.setRealTimeSimulation(1)
 
     def get_obv_for_planning(self):
         di = OrderedDict()
@@ -361,22 +376,6 @@ class Env_SawyerRmp(mySawyerEnv):
         # obstacle_pos.append(cubeA_pos)
         # obstacle_pos.append(cubeB_pos)
         di["obstacle_pos"] = obstacle_pos
-
-        jacobi_links = []
-        djacobi_links = []
-        for i in range(len(joint_pos)):
-            jacobi = lambda q: np.array(p.calculateJacobian(self.bullet_robot,
-                                                            linkIndex=i,
-                                                            localPosition=[0., 0., 0.],
-                                                            objPositions=q.tolist(),
-                                                            objVelocities=[0., 0., 0., 0., 0., 0., 0.],
-                                                            objAccelerations=[0., 0., 0., 0., 0., 0., 0.]))
-            djacobi = lambda q, dq: derivative(func=jacobi, x0=q, dx=dq)
-            jacobi_links.append(jacobi)
-            djacobi_links.append(djacobi)
-
-        di["f_jcb"] = jacobi_links
-        di["f_jcb_dot"] = djacobi_links
 
         return di
 

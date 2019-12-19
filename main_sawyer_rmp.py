@@ -23,10 +23,12 @@ if __name__ == "__main__":
 
         di = env.get_obv_for_planning()
 
-        J = di["f_jcb"][6]
-        dJ = di["f_jcb_dot"][6]
+        J = env.f_jcb[6]
+        dJ = env.f_jcb_dot[6]
 
         q = di["joint_pos"]
         dq = di["joint_vel"]
+
+        print(dJ(q, dq))
 
         env.render()
