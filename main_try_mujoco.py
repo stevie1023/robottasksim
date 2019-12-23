@@ -35,6 +35,7 @@ if __name__ == "__main__":
 
     model = mujoco_darias
 
+
     mjpy_model = model.get_model(mode="mujoco_py")
     sim = MjSim(mjpy_model)
 

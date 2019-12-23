@@ -7,7 +7,6 @@ NOTE: convention for quaternions is (x, y, z, w)
 import math
 import numpy as np
 
-
 PI = np.pi
 EPS = np.finfo(float).eps * 4.
 

@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import numpy as np
 
-from robosuite.utils.transform_utils import convert_quat
+from robosuite.utils.transform_utils import convert_quat, mat2quat
 from robosuite.environments.my_sawyer import mySawyerEnv
 
 from robosuite.models import assets_root
@@ -10,6 +10,8 @@ from robosuite.models.objects import BoxObject
 from robosuite.models.tasks import MyTask, UniformRandomSampler
 
 from scipy.misc import derivative
+import copy
+from urdf2casadi import converter
 
 from os.path import join as pjoin
 import pybullet as p
@@ -160,6 +162,7 @@ class Env_SawyerRmp(mySawyerEnv):
 
         self.f_jcb = None
         self.f_jcb_dot = None
+        self.fk_dict = None
         self.setup_inverse_kinematics()
 
     def _load_model(self):
@@ -326,11 +329,8 @@ class Env_SawyerRmp(mySawyerEnv):
         return (r_reach, r_lift, r_stack)
 
     def setup_inverse_kinematics(self):
-        """
-        This function is responsible for doing any setup for inverse kinematics.
-        Inverse Kinematics maps end effector (EEF) poses to joint angles that
-        are necessary to achieve those poses.
-        """
+
+        num_joints = 7
 
         # Set up a connection to the PyBullet simulator.
         p.connect(p.DIRECT)
@@ -339,25 +339,53 @@ class Env_SawyerRmp(mySawyerEnv):
         # get paths to urdfs
         self.r_urdf = pjoin(assets_root, "bullet_data/sawyer_description/urdf/sawyer_arm.urdf")
 
+        base_pos = (-self.mujoco_robot.bottom_offset).tolist()
         # load the urdfs
-        self.bullet_robot = p.loadURDF(self.r_urdf, (0, 0, 0.9), useFixedBase=1)
+        self.bullet_robot = p.loadURDF(self.r_urdf, base_pos, useFixedBase=1)
+        # self.bullet_robot = p.loadMJCF('/home/ren/mypy/RobotTaskSim/robosuite/models/assets/robots/sawyer/robot.xml')
 
-        self.f_jcb = []
-        self.f_jcb_dot = []
-        for i in range(7):
-            # Initialize the Jacobian function and its derivative of each control point
-            J = lambda q: np.array(p.calculateJacobian(self.bullet_robot,
-                                                       linkIndex=i,
-                                                       localPosition=[0., 0., 0.],
-                                                       objPositions=q.tolist(),
-                                                       objVelocities=[0., 0., 0., 0., 0., 0., 0.],
-                                                       objAccelerations=[0., 0., 0., 0., 0., 0., 0.]))
-            J_dot = lambda q, dq: derivative(func=J, x0=q, dx=dq)
-            self.f_jcb.append(J)
-            self.f_jcb_dot.append(J_dot)
+        for i in range(num_joints):
+            print(p.getJointInfo(self.bullet_robot, i))
 
-        # Simulation will update as fast as it can in real time, instead of waiting for
-        # step commands like in the non-realtime case.
+        self.fk_dict = []
+        for index_link in range(num_joints):
+            fk_dict = converter.from_file("right_arm_base_link",
+                                          "right_l" + str(index_link),
+                                          self.r_urdf)
+            self.fk_dict.append(fk_dict)
+
+        def calForwardKinematics(index_link, q):
+            qc = np.array(q)[0:(index_link + 1)]
+            fk_dict = self.fk_dict[index_link]
+            T = fk_dict["T_fk"](qc)
+            pos = T[:3, 3] + base_pos
+            rot_mat = T[:3, :3]
+            # rot_quat = mat2quat(rot_mat)
+            rot_quat = fk_dict["quaternion_fk"](qc)
+
+            return [pos, rot_mat, rot_quat]
+
+        def calJacobian(index_link, q):
+            """
+            Returns:
+                Jacobian matrix: J[0] for pos, J[1] for ori
+            """
+            q = np.array(q)
+            J = p.calculateJacobian(self.bullet_robot,
+                                    linkIndex=index_link,
+                                    localPosition=[0., 0., 0.],
+                                    objPositions=q.tolist(),
+                                    objVelocities=[0., 0., 0., 0., 0., 0., 0.],
+                                    objAccelerations=[0., 0., 0., 0., 0., 0., 0.])
+            return np.array(J)
+
+        def calJacobian_dot(index_link, q, dq):
+            return derivative(func=calJacobian, x0=q, dx=dq)
+
+        self.f_phi = calForwardKinematics
+        self.f_jcb = calJacobian
+        self.f_jcb_dot = calJacobian_dot
+
         p.setRealTimeSimulation(1)
 
     def get_obv_for_planning(self):
@@ -367,6 +395,8 @@ class Env_SawyerRmp(mySawyerEnv):
         joint_vel = np.array([self.sim.data.qvel[x] for x in self._ref_joint_vel_indexes])
         di["joint_pos"] = joint_pos
         di["joint_vel"] = joint_vel
+
+        # print(self._ref_joint_pos_indexes)
 
         obstacle_pos = []
         for i in self.mujoco_obstacle:

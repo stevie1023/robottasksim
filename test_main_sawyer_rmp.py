@@ -44,8 +44,6 @@ if __name__ == "__main__":
             env.sim.model.body_name2id(id_name)]  # quaternion of mujoco is defined differently from others
         current_rotmat = env.sim.data.body_xmat[env.sim.model.body_name2id(id_name)].reshape([3, 3])
 
-        current_position_0 = env.sim.data.body_xpos[env.sim.model.body_name2id('right_l0')]
-
         current_velp = env.sim.data.body_xvelp[env.sim.model.body_name2id(id_name)]
         current_velr = env.sim.data.body_xvelr[env.sim.model.body_name2id(id_name)]
 
@@ -62,33 +60,21 @@ if __name__ == "__main__":
             # print(J(q)[1])
 
             # print(current_velp)
-
+            print('Jacobian_pos------------------------------')
             print(current_velp)
             print(np.dot(Jx, dq))
             print(np.dot(J(q)[0], dq))
-            print()
+            print('Jacobian_ori------------------------------')
             print(current_velr)
             print(np.dot(Jr, dq))
             print(np.dot(J(q)[1], dq))
 
-            # print(J(q)[0]-Jx)
-
-            # print(Jx)
-            # print(J(q)[0])
-
-            # print(current_rotmat)
-            # print(phi(q)[1])
-            # print(phi(q)[2])
-            # print(mat2quat(phi(q)[1]))
-
-            # print(quat2mat(mat2quat(phi(q)[1])))
-            # print(get_orientation_error(current_orientation, phi(q)[1]))
-
-            # print(np.linalg.norm(current_position - phi(q)[0]))
-            # mj = np.linalg.norm(current_position - current_position_0)
-            # pb = np.linalg.norm(phi(q)[0] - phi_0(q)[0])
-            # print(mj)
-            # print(pb)
+            print('ForwardKinematics_pos------------------------------')
+            print(current_position)
+            print(phi(q)[0])
+            print('ForwardKinematics_ori------------------------------')
+            print(mat2quat(current_rotmat))
+            print(mat2quat(phi(q)[1]))
 
             print()
             print()

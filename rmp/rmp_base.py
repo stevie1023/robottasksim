@@ -20,7 +20,7 @@ class RMPNode:
         if self.parent:
             self.parent.add_child(self)
 
-        # mapping/J/J_dot for the edge from the parent to the node
+        # forward mapping & J & J_dot for the edge from the parent to the node
         self.psi = psi
         self.J = J
         self.J_dot = J_dot
