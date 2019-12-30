@@ -2,7 +2,7 @@
 # @author Anqi Li
 # @date April 8, 2019
 
-from rmp import RMPNode, RMPRoot, RMPLeaf
+from rmp import RMP_Node, RMP_Root, RMPLeaf
 import numpy as np
 from numpy.linalg import norm
 
@@ -31,11 +31,11 @@ class CollisionAvoidance(RMPLeaf):
 
             N = c.size
 
-            psi = lambda x: np.array(norm(x - c) / R - 1).reshape(-1, 1)  # y = psi(x), forward mapping
-            J = lambda x: 1.0 / norm(x - c) * (x - c).T / R               # y_dot = J(x_dot), Jacobi
-            J_dot = lambda x, x_dot: np.dot(x_dot.T,
-                                            (-1 / norm(x - c) ** 3 * np.dot((x - c), (x - c).T)
-                                             + 1 / norm(x - c) * np.eye(N))) / R
+            psi = lambda p_x: np.array(norm(p_x - c) / R - 1).reshape(-1, 1)  # y = psi(x), forward mapping
+            J = lambda p_x: 1.0 / norm(p_x - c) * (p_x - c).T / R  # y_dot = J(x_dot), Jacobi
+            J_dot = lambda p_x, p_dx: np.dot(p_dx.T,
+                                             (-1 / norm(p_x - c) ** 3 * np.dot((p_x - c), (p_x - c).T)
+                                              + 1 / norm(p_x - c) * np.eye(N))) / R
 
         def RMP_func(x, x_dot):
             if x < 0:
@@ -142,12 +142,12 @@ class CollisionAvoidanceDecentralized(RMPLeaf):
 
         N = c.size
 
-        self.psi = lambda y: np.array(norm(y - c) / R - 1).reshape(-1, 1)
-        self.J = lambda y: 1.0 / norm(y - c) * (y - c).T / R
-        self.J_dot = lambda y, y_dot: np.dot(
-            y_dot.T,
-            (-1 / norm(y - c) ** 3 * np.dot((y - c), (y - c).T)
-             + 1 / norm(y - c) * np.eye(N))) / R
+        self.psi = lambda p_x: np.array(norm(p_x - c) / R - 1).reshape(-1, 1)
+        self.J = lambda p_x: 1.0 / norm(p_x - c) * (p_x - c).T / R
+        self.J_dot = lambda p_x, p_dx: np.dot(
+            p_dx.T,
+            (-1 / norm(p_x - c) ** 3 * np.dot((p_x - c), (p_x - c).T)
+             + 1 / norm(p_x - c) * np.eye(N))) / R
 
 
 class CollisionAvoidanceCentralized(RMPLeaf):

@@ -13,7 +13,11 @@ if __name__ == "__main__":
     env.reset()
     env.viewer.set_camera(camera_id=0)
 
-    # exit()
+    joint_index = 6
+
+    psi = lambda q: env.f_psi(joint_index, q)
+    J = lambda q: env.f_jcb(joint_index, q)
+    dJ = lambda q, dq: env.f_jcb_dot(joint_index, q, dq)
 
     # do visualization
     for i in range(5000):
@@ -23,16 +27,6 @@ if __name__ == "__main__":
         obs, reward, done, _ = env.step(action)
 
         di = env.get_obv_for_planning()
-
-        joint_index = 6
-
-        phi = lambda q: env.f_phi(joint_index, q)
-        J = lambda q: env.f_jcb(joint_index, q)
-        dJ = lambda q, dq: env.f_jcb_dot(joint_index, q, dq)
-
-        phi_0 = lambda q: env.f_phi(0, q)
-        J_0 = lambda q: env.f_jcb(0, q)
-        dJ_0 = lambda q, dq: env.f_jcb_dot(0, q, dq)
 
         q = di["joint_pos"]
         dq = di["joint_vel"]
@@ -71,10 +65,10 @@ if __name__ == "__main__":
 
             print('ForwardKinematics_pos------------------------------')
             print(current_position)
-            print(phi(q)[0])
+            print(psi(q)[0])
             print('ForwardKinematics_ori------------------------------')
             print(mat2quat(current_rotmat))
-            print(mat2quat(phi(q)[1]))
+            print(mat2quat(psi(q)[1]))
 
             print()
             print()

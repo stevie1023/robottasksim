@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import numpy as np
 
-from robosuite.utils.transform_utils import convert_quat, mat2quat
+from robosuite.utils.transform_utils import convert_quat, mat2quat, angularVelocity2matS, cross_mat
 from robosuite.environments.my_sawyer import mySawyerEnv
 
 from robosuite.models import assets_root
@@ -163,7 +163,9 @@ class Env_SawyerRmp(mySawyerEnv):
         self.f_jcb = None
         self.f_jcb_dot = None
         self.fk_dict = None
-        self.setup_inverse_kinematics()
+        self.setup_kinematic_tools()
+
+        self.num_joint = 7
 
     def _load_model(self):
         """
@@ -202,6 +204,95 @@ class Env_SawyerRmp(mySawyerEnv):
                             self.mujoco_obstacle,
                             initializer=self.placement_initializer, )
         # self.model.place_objects()
+
+    def setup_kinematic_tools(self):
+
+        self.num_joint = 7
+
+        # Set up a connection to the PyBullet simulator.
+        p.connect(p.DIRECT)
+        p.resetSimulation()
+
+        # get paths to urdfs
+        self.r_urdf = pjoin(assets_root, "bullet_data/sawyer_description/urdf/sawyer_arm.urdf")
+
+        base_pos = (-self.mujoco_robot.bottom_offset).tolist()
+        # load the urdfs
+        self.bullet_robot = p.loadURDF(self.r_urdf, base_pos, useFixedBase=1)
+        # self.bullet_robot = p.loadMJCF('/home/ren/mypy/RobotTaskSim/robosuite/models/assets/robots/sawyer/robot.xml')
+
+        self.fk_dict = []
+        for index_link in range(self.num_joint):
+            fk_dict = converter.from_file("right_arm_base_link",
+                                          "right_l" + str(index_link),
+                                          self.r_urdf)
+            self.fk_dict.append(fk_dict)
+
+        def calForwardKinematics(index_link, q):
+            qc = np.array(q)[0:(index_link + 1)]
+            fk_dict = self.fk_dict[index_link]
+            T = fk_dict["T_fk"](qc)
+            pos = T[:3, 3] + base_pos
+            rot_mat = T[:3, :3]
+            # rot_quat = mat2quat(rot_mat)
+            rot_quat = fk_dict["quaternion_fk"](qc)  # # quaternion (x, y, z, w)
+
+            return np.squeeze(np.vstack((pos, rot_quat)))
+
+        def calJacobian(index_link, q):
+            """
+            Returns:
+                Jacobian matrix: J[0] for pos, J[1] for ori
+            """
+            q = np.array(q)
+            J = p.calculateJacobian(self.bullet_robot,
+                                    linkIndex=index_link,
+                                    localPosition=[0., 0., 0.],
+                                    objPositions=q.tolist(),
+                                    objVelocities=[0., 0., 0., 0., 0., 0., 0.],
+                                    objAccelerations=[0., 0., 0., 0., 0., 0., 0.])
+
+            quat = calForwardKinematics(index_link, q)[3:7]
+            # J_pos = np.array(J[0])
+            # J_ang = np.array(J[1])
+            J_pos = J[0]
+            J_ang = J[1]
+            a = quat[3] * np.eye(3) + cross_mat(quat[0:3])
+            b = -quat[0:3].T
+            ang2quat = np.vstack((a, b))
+            J_quat = np.dot(ang2quat, J_ang)
+            return np.vstack((J_pos, J_quat))
+
+        def calJacobian_dot(index_link, q, dq):
+            J = lambda q: calJacobian(index_link, q)
+            return derivative(func=J, x0=q, dx=dq)
+
+        self.f_psi = calForwardKinematics
+        self.f_jcb = calJacobian
+        self.f_jcb_dot = calJacobian_dot
+
+        p.setRealTimeSimulation(1)
+
+    def get_obv_for_planning(self):
+        di = OrderedDict()
+
+        joint_pos = np.array([self.sim.data.qpos[x] for x in self._ref_joint_pos_indexes])
+        joint_vel = np.array([self.sim.data.qvel[x] for x in self._ref_joint_vel_indexes])
+        di["joint_pos"] = joint_pos
+        di["joint_vel"] = joint_vel
+
+        # print(self._ref_joint_pos_indexes)
+
+        obstacle_pos = []
+        for i in self.mujoco_obstacle:
+            obstacle_pos.append(self.mujoco_obstacle[i].pos)
+        # cubeA_pos = np.array(self.sim.data.body_xpos[self.cubeA_body_id])
+        # cubeB_pos = np.array(self.sim.data.site_xpos[self.cubeB_body_id])
+        # obstacle_pos.append(cubeA_pos)
+        # obstacle_pos.append(cubeB_pos)
+        di["obstacle_pos"] = obstacle_pos
+
+        return di
 
     def _get_reference(self):
         """
@@ -327,87 +418,6 @@ class Env_SawyerRmp(mySawyerEnv):
             r_stack = 2.0
 
         return (r_reach, r_lift, r_stack)
-
-    def setup_inverse_kinematics(self):
-
-        num_joints = 7
-
-        # Set up a connection to the PyBullet simulator.
-        p.connect(p.DIRECT)
-        p.resetSimulation()
-
-        # get paths to urdfs
-        self.r_urdf = pjoin(assets_root, "bullet_data/sawyer_description/urdf/sawyer_arm.urdf")
-
-        base_pos = (-self.mujoco_robot.bottom_offset).tolist()
-        # load the urdfs
-        self.bullet_robot = p.loadURDF(self.r_urdf, base_pos, useFixedBase=1)
-        # self.bullet_robot = p.loadMJCF('/home/ren/mypy/RobotTaskSim/robosuite/models/assets/robots/sawyer/robot.xml')
-
-        for i in range(num_joints):
-            print(p.getJointInfo(self.bullet_robot, i))
-
-        self.fk_dict = []
-        for index_link in range(num_joints):
-            fk_dict = converter.from_file("right_arm_base_link",
-                                          "right_l" + str(index_link),
-                                          self.r_urdf)
-            self.fk_dict.append(fk_dict)
-
-        def calForwardKinematics(index_link, q):
-            qc = np.array(q)[0:(index_link + 1)]
-            fk_dict = self.fk_dict[index_link]
-            T = fk_dict["T_fk"](qc)
-            pos = T[:3, 3] + base_pos
-            rot_mat = T[:3, :3]
-            # rot_quat = mat2quat(rot_mat)
-            rot_quat = fk_dict["quaternion_fk"](qc)
-
-            return [pos, rot_mat, rot_quat]
-
-        def calJacobian(index_link, q):
-            """
-            Returns:
-                Jacobian matrix: J[0] for pos, J[1] for ori
-            """
-            q = np.array(q)
-            J = p.calculateJacobian(self.bullet_robot,
-                                    linkIndex=index_link,
-                                    localPosition=[0., 0., 0.],
-                                    objPositions=q.tolist(),
-                                    objVelocities=[0., 0., 0., 0., 0., 0., 0.],
-                                    objAccelerations=[0., 0., 0., 0., 0., 0., 0.])
-            return np.array(J)
-
-        def calJacobian_dot(index_link, q, dq):
-            return derivative(func=calJacobian, x0=q, dx=dq)
-
-        self.f_phi = calForwardKinematics
-        self.f_jcb = calJacobian
-        self.f_jcb_dot = calJacobian_dot
-
-        p.setRealTimeSimulation(1)
-
-    def get_obv_for_planning(self):
-        di = OrderedDict()
-
-        joint_pos = np.array([self.sim.data.qpos[x] for x in self._ref_joint_pos_indexes])
-        joint_vel = np.array([self.sim.data.qvel[x] for x in self._ref_joint_vel_indexes])
-        di["joint_pos"] = joint_pos
-        di["joint_vel"] = joint_vel
-
-        # print(self._ref_joint_pos_indexes)
-
-        obstacle_pos = []
-        for i in self.mujoco_obstacle:
-            obstacle_pos.append(self.mujoco_obstacle[i].pos)
-        # cubeA_pos = np.array(self.sim.data.body_xpos[self.cubeA_body_id])
-        # cubeB_pos = np.array(self.sim.data.site_xpos[self.cubeB_body_id])
-        # obstacle_pos.append(cubeA_pos)
-        # obstacle_pos.append(cubeB_pos)
-        di["obstacle_pos"] = obstacle_pos
-
-        return di
 
     def _get_observation(self):
         """

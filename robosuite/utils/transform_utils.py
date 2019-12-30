@@ -70,15 +70,11 @@ def quat_multiply(quaternion1, quaternion0):
     """
     x0, y0, z0, w0 = quaternion0
     x1, y1, z1, w1 = quaternion1
-    return np.array(
-        (
-            x1 * w0 + y1 * z0 - z1 * y0 + w1 * x0,
-            -x1 * z0 + y1 * w0 + z1 * x0 + w1 * y0,
-            x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0,
-            -x1 * x0 - y1 * y0 - z1 * z0 + w1 * w0,
-        ),
-        dtype=np.float32,
-    )
+    return np.array((x1 * w0 + y1 * z0 - z1 * y0 + w1 * x0,
+                     -x1 * z0 + y1 * w0 + z1 * x0 + w1 * y0,
+                     x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0,
+                     -x1 * x0 - y1 * y0 - z1 * z0 + w1 * w0,),
+                    dtype=np.float32, )
 
 
 def quat_conjugate(quaternion):
@@ -222,7 +218,7 @@ def mat2quat(rmat, precise=False):
              rotation matrix and a faster algorithm is used.
 
     Returns:
-        vec4 float quaternion angles
+        vec4 float quaternion (x, y, z, w) angles
     """
     M = np.array(rmat, dtype=np.float32, copy=False)[:3, :3]
     if precise:
@@ -434,6 +430,14 @@ def _skew_symmetric_translation(pos_A_in_B):
             0.,
         ]
     ).reshape((3, 3))
+
+
+def cross_mat(w0):
+    # 叉乘矩阵
+    w=np.squeeze(w0)
+    return np.array([[0, -w[2], w[1]],
+                     [w[2], 0, -w[0]],
+                     [-w[1], w[0], 0]])
 
 
 def vel_in_A_to_vel_in_B(vel_A, ang_vel_A, pose_A_in_B):
@@ -650,3 +654,15 @@ def get_pose_error(target_pose, current_pose):
     error[:3] = pos_err
     error[3:] = rot_err
     return error
+
+
+def angularVelocity2matS(w):
+    matS = np.array([[0, -w[2], w[1]], [w[2], 0, -w[0]], [-w[1], w[0], 0]])
+    return matS
+
+
+def cal_quaternion_derivative(quat, vel_angular):
+    qv = quat[0:2]
+    qw = quat[3]
+    quat_dot = 0.5 * np.concatenate((qw * vel_angular, np.cross(qv, vel_angular)))
+    return quat_dot

@@ -2,7 +2,7 @@
 # @author Anqi Li
 # @date April 8, 2019
 
-from rmp import RMPRoot, RMPNode
+from rmp import RMP_Root, RMP_Node
 from rmp.rmp_leaf import CollisionAvoidance, CollisionAvoidanceDecentralized, GoalAttractorUni
 
 import numpy as np
@@ -61,13 +61,13 @@ if __name__ == "__main__":
     theta = np.arange(0, 2 * np.pi, 2 * np.pi / N)
     x_g = np.stack((np.cos(theta), np.sin(theta))).T * 10
 
-    rt = RMPRoot('root')
+    rt = RMP_Root('root')
 
     robots = []
 
     for i in range(N):
         phi, J, J_dot = create_mappings(i)
-        robot = RMPNode('robot_' + str(i), rt, phi, J, J_dot)
+        robot = RMP_Node('robot_' + str(i), rt, phi, J, J_dot)
         robots.append(robot)
 
     gas = []

@@ -3,6 +3,9 @@ import numpy as np
 from robosuite import Env_SawyerRmp
 from robosuite.utils.transform_utils import get_orientation_error, quat2mat, mat2quat
 
+from rmp.rmp_base import RMP_Root, RMP_Node, RMP_robotLink
+from rmp.rmp_leaf import CollisionAvoidanceDecentralized, GoalAttractorUni
+
 if __name__ == "__main__":
 
     # initialize the task
@@ -13,7 +16,34 @@ if __name__ == "__main__":
     env.reset()
     env.viewer.set_camera(camera_id=0)
 
-    # exit()
+    joint_index = 6
+
+    psi = lambda q: env.f_psi(joint_index, q)
+    J = lambda q: env.f_jcb(joint_index, q)
+    dJ = lambda q, dq: env.f_jcb_dot(joint_index, q, dq)
+
+    rt = RMP_Root('root')
+
+    link_frames = []
+
+    for i in range(env.num_joint):
+        link_frame = RMP_robotLink('rlk_' + str(i), i, rt, env.f_psi, env.f_jcb, env.f_jcb_dot)
+        link_frames.append(link_frame)
+
+    # goal control points
+    # gcp_o=RMP_Node('gcp_0', link_frames[6], )
+    #
+    # goal_attractors = []
+
+    # for i in range(N):
+    #     goal_attractor = GoalAttractorUni('ga_robot_' + str(i),
+    #                                       link_frames[i],
+    #                                       x_g[i],
+    #                                       alpha=1,
+    #                                       gain=1,
+    #                                       eta=2)
+    #
+    #     gas.append(goal_attractor)
 
     # do visualization
     for i in range(5000):
@@ -24,16 +54,6 @@ if __name__ == "__main__":
 
         di = env.get_obv_for_planning()
 
-        joint_index = 6
-
-        phi = lambda q: env.f_phi(joint_index, q)
-        J = lambda q: env.f_jcb(joint_index, q)
-        dJ = lambda q, dq: env.f_jcb_dot(joint_index, q, dq)
-
-        phi_0 = lambda q: env.f_phi(0, q)
-        J_0 = lambda q: env.f_jcb(0, q)
-        dJ_0 = lambda q, dq: env.f_jcb_dot(0, q, dq)
-
         q = di["joint_pos"]
         dq = di["joint_vel"]
 
@@ -41,10 +61,8 @@ if __name__ == "__main__":
         current_position = env.sim.data.body_xpos[env.sim.model.body_name2id(id_name)]
 
         current_quat = env.sim.data.body_xquat[
-            env.sim.model.body_name2id(id_name)]  # quaternion of mujoco is defined differently from others
+            env.sim.model.body_name2id(id_name)]  # quaternion (w, x, y, z)
         current_rotmat = env.sim.data.body_xmat[env.sim.model.body_name2id(id_name)].reshape([3, 3])
-
-        current_position_0 = env.sim.data.body_xpos[env.sim.model.body_name2id('right_l0')]
 
         current_velp = env.sim.data.body_xvelp[env.sim.model.body_name2id(id_name)]
         current_velr = env.sim.data.body_xvelr[env.sim.model.body_name2id(id_name)]
@@ -58,37 +76,28 @@ if __name__ == "__main__":
             print()
             print()
 
-            # print(Jr)
-            # print(J(q)[1])
+            # print(psi(q))
+            # print(J(q))
+            # print(dJ(q, dq))
 
+            # print('Jacobian_pos------------------------------')
             # print(current_velp)
-
-            print(current_velp)
-            print(np.dot(Jx, dq))
-            print(np.dot(J(q)[0], dq))
-            print()
+            # print(np.dot(Jx, dq))
+            # print(np.dot(J(q)[0], dq))
+            # print('Jacobian_ori------------------------------')
             print(current_velr)
-            print(np.dot(Jr, dq))
-            print(np.dot(J(q)[1], dq))
+            quat_dot = np.dot(J(q), dq)[3:7]
+            quat = psi(q)[3:7]
 
-            # print(J(q)[0]-Jx)
+            print()
 
-            # print(Jx)
-            # print(J(q)[0])
-
-            # print(current_rotmat)
-            # print(phi(q)[1])
-            # print(phi(q)[2])
-            # print(mat2quat(phi(q)[1]))
-
-            # print(quat2mat(mat2quat(phi(q)[1])))
-            # print(get_orientation_error(current_orientation, phi(q)[1]))
-
-            # print(np.linalg.norm(current_position - phi(q)[0]))
-            # mj = np.linalg.norm(current_position - current_position_0)
-            # pb = np.linalg.norm(phi(q)[0] - phi_0(q)[0])
-            # print(mj)
-            # print(pb)
+            # print('ForwardKinematics_pos------------------------------')
+            # print(current_position)
+            # print(link_frames[joint_index].psi(q)[0])
+            # print(psi(q)[1])
+            # print('ForwardKinematics_ori------------------------------')
+            # print(mat2quat(current_rotmat))
+            # print(psi(q)[2])
 
             print()
             print()

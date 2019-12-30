@@ -5,7 +5,7 @@
 import numpy as np
 
 
-class RMPNode:
+class RMP_Node:
     """
     A Generic RMP node
     """
@@ -65,7 +65,7 @@ class RMPNode:
         apply pullback operation recursively
         """
 
-        [child.pullback() for child in self.children]   # call pullback() of all children
+        [child.pullback() for child in self.children]  # call pullback() of all children
 
         if self.verbose:
             print('%s: pullback' % self.name)
@@ -89,13 +89,53 @@ class RMPNode:
         self.M = M
 
 
-class RMPRoot(RMPNode):
+class RMP_robotLink(RMP_Node):
+    """
+        Robot Link Frame. Usually defined as the links of the robot
+        x is
+    """
+
+    def __init__(self, name, index, parent, array_psi, array_J, array_J_dot, verbose=False):
+        # 对于机器人　p_x = q
+        psi = lambda p_x: array_psi(index, p_x)
+        J = lambda p_x: array_J(index, p_x)
+        J_dot = lambda p_x, p_dx: array_J_dot(index, p_x, p_dx)
+
+        RMP_Node.__init__(self, name, parent, psi, J, J_dot, verbose)
+
+    def pushforward(self):
+        """
+        apply pushforward operation recursively
+        """
+        if self.verbose:
+            print('%s: pushforward' % self.name)
+
+        self.x = self.psi(self.parent.x)
+        vel_pos = np.dot(self.J(self.parent.x)[0], self.parent.x_dot)
+        vel_angular = np.dot(self.J(self.parent.x)[1], self.parent.x_dot)
+
+        self.x_dot = [vel_pos, vel_angular]
+
+        [child.pushforward() for child in self.children]
+
+
+# class RMP_goalControlPoint(RMP_Node):
+#
+#     def __init__(self, name, index, parent, offset=[0., 0., 0.], verbose=False):
+#         psi = lambda p_x: parent.x+
+#         J = lambda q: array_J(index, q)
+#         J_dot = lambda q, dq: array_J_dot(index, q, dq)
+#
+#         RMP_Node.__init__(self, name, parent, psi, J, J_dot, verbose)
+
+
+class RMP_Root(RMP_Node):
     """
     A root node
     """
 
     def __init__(self, name):
-        RMPNode.__init__(self, name, None, None, None, None)
+        RMP_Node.__init__(self, name, None, None, None, None)
 
     def set_root_state(self, x, x_dot):
         """
@@ -145,13 +185,13 @@ class RMPRoot(RMPNode):
         return self.resolve()
 
 
-class RMPLeaf(RMPNode):
+class RMPLeaf(RMP_Node):
     """
     A leaf node
     """
 
     def __init__(self, name, parent, parent_param, psi, J, J_dot, RMP_func):
-        RMPNode.__init__(self, name, parent, psi, J, J_dot)
+        RMP_Node.__init__(self, name, parent, psi, J, J_dot)
         self.RMP_func = RMP_func
         self.parent_param = parent_param
 
