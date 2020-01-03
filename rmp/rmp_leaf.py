@@ -34,8 +34,8 @@ class GoalAttractorPosition(RMPLeaf):
             w = (w_u - w_l) * beta + w_l
             M = np.eye(3) * w
 
-            p_gain = 5
-            d_gain = 5
+            p_gain = 10
+            d_gain = 8
 
             d_a = -p_gain * soft_normalization(x) - d_gain * x_dot
 
@@ -61,7 +61,7 @@ class GoalAttractorOritation(RMPLeaf):
         #     y_g = y_g.reshape(-1, 1)
         assert isinstance(parent, RMP_oriControlPoint)
 
-        psi = lambda p_x: get_orientation_error(x_goal, p_x)
+        psi = lambda p_x: -get_orientation_error(x_goal, p_x)
         J = lambda p_x: mat_quatVel2angVel(p_x)
 
         def J_dot(p_x, p_x_dot):
@@ -78,8 +78,8 @@ class GoalAttractorOritation(RMPLeaf):
             w = (w_u - w_l) * beta + w_l
             M = np.eye(3) * w
 
-            p_gain = 5
-            d_gain = 5
+            p_gain = 10
+            d_gain = 10
 
             d_a = -p_gain * soft_normalization(x) - d_gain * x_dot
 
@@ -128,8 +128,8 @@ class JoinLimitAvoidance(RMPLeaf):
                 list_a.append(a)
             A = np.diag(list_a)
 
-            p_gain = 5
-            d_gain = 5
+            p_gain = 1
+            d_gain = 1
 
             d_a = -p_gain * x - d_gain * x_dot
 

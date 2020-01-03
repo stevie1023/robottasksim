@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     root_leafs = []
     Damper("damperRoot", rt, 7, d_gain=1)
-    JoinLimitAvoidance("joinLimitAvoidance", rt, ctrl_range)
+    # JoinLimitAvoidance("joinLimitAvoidance", rt, ctrl_range)
 
     link_frames = []
 
@@ -67,13 +67,13 @@ if __name__ == "__main__":
     goal_pos_cp = RMP_posControlPoint('posControlPoint_o', link_frames[6], [0, 0, 0.1])
     leaf = GoalAttractorPosition('goalAttractionPos', goal_pos_cp, pos_goal)
     attraction_leafs.append(leaf)
-    Damper("damperControlPoint_Pos", goal_pos_cp, 3, d_gain=2)
+    Damper("damperControlPoint_Pos", goal_pos_cp, 3, d_gain=5)
 
-    ori_goal = getQuat(axis=[0, 1, 0], angle=1 * np.pi)
+    ori_goal = getQuat(axis=[0, 1, 0], angle=0 * np.pi)
     goal_ori_cp = RMP_oriControlPoint('oriControlPoint', link_frames[6])
     leaf = GoalAttractorOritation('goalAttractionOri', goal_ori_cp, ori_goal)
     attraction_leafs.append(leaf)
-    Damper("damperControlPoint_Ori", goal_ori_cp, 4, d_gain=1)
+    Damper("damperControlPoint_Ori", goal_ori_cp, 4, d_gain=5)
 
     # rt.set_root_state(joint_pos, joint_vel)
     # rt.pushforward()
