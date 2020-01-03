@@ -3,6 +3,7 @@
 # @date April 8, 2019
 
 import numpy as np
+from utils.transform_utils import *
 
 
 class RMP_Node:
@@ -26,8 +27,8 @@ class RMP_Node:
         self.J_dot = J_dot
 
         # state
-        self.x = None
-        self.x_dot = None
+        self.x = None  # x = array([  ,  ,  ])
+        self.x_dot = None  # x_dot = array([  ,  ,  ])
 
         # RMP
         self.f = None
@@ -54,9 +55,9 @@ class RMP_Node:
 
         if self.psi is not None and self.J is not None:
             self.x = self.psi(self.parent.x)
-            self.x_dot = np.dot(self.J(self.parent.x), self.parent.x_dot)
+            self.x_dot = np.squeeze(np.dot(self.J(self.parent.x), self.parent.x_dot))
 
-            assert self.x.ndim == 2 and self.x_dot.ndim == 2
+            # assert self.x.ndim == 2 and self.x_dot.ndim == 2
 
         [child.pushforward() for child in self.children]
 
@@ -65,68 +66,88 @@ class RMP_Node:
         apply pullback operation recursively
         """
 
-        [child.pullback() for child in self.children]  # call pullback() of all children
+        [child.pullback() for child in self.children]
 
         if self.verbose:
             print('%s: pullback' % self.name)
 
-        f = np.zeros_like(self.x, dtype='float64')
-        M = np.zeros((max(self.x.shape), max(self.x.shape)),
-                     dtype='float64')
+        f = np.zeros_like(self.x)
+        M = np.zeros((max(self.x.shape), max(self.x.shape)))
 
         for child in self.children:
 
             J_child = child.J(self.x)
             J_dot_child = child.J_dot(self.x, self.x_dot)
 
-            assert J_child.ndim == 2 and J_dot_child.ndim == 2
-
             if child.f is not None and child.M is not None:
-                f += np.dot(J_child.T, (child.f - np.dot(np.dot(child.M, J_dot_child), self.x_dot)))
-                M += np.dot(np.dot(J_child.T, child.M), J_child)
+                M_dJ_dx = dot3(child.M, J_dot_child, self.x_dot)
+                f += np.squeeze(dot2(J_child.T, child.f - M_dJ_dx))
+                M += dot3(J_child.T, child.M, J_child)  # Sandwich product
 
         self.f = f
         self.M = M
 
 
-class RMP_robotLink(RMP_Node):
+class RMP_linkFrame(RMP_Node):
     """
-        Robot Link Frame. Usually defined as the links of the robot
-        x is
+        parent = RMP_Root
+        x = [x, y, z, qx, qy, qz, qw]
     """
 
-    def __init__(self, name, index, parent, array_psi, array_J, array_J_dot, verbose=False):
-        # 对于机器人　p_x = q
-        psi = lambda p_x: array_psi(index, p_x)
-        J = lambda p_x: array_J(index, p_x)
-        J_dot = lambda p_x, p_dx: array_J_dot(index, p_x, p_dx)
+    def __init__(self, name, parent, psi, J, J_dot, verbose=False):
+        assert isinstance(parent, RMP_Root)
 
         RMP_Node.__init__(self, name, parent, psi, J, J_dot, verbose)
 
-    def pushforward(self):
-        """
-        apply pushforward operation recursively
-        """
-        if self.verbose:
-            print('%s: pushforward' % self.name)
 
-        self.x = self.psi(self.parent.x)
-        vel_pos = np.dot(self.J(self.parent.x)[0], self.parent.x_dot)
-        vel_angular = np.dot(self.J(self.parent.x)[1], self.parent.x_dot)
+class RMP_posControlPoint(RMP_Node):
+    """
+        parent = RMP_robotLinkFrame
+        x = [x, y, z]
+    """
 
-        self.x_dot = [vel_pos, vel_angular]
+    def __init__(self, name, parent, offset=None, verbose=False):
+        if offset is None:
+            offset = [0., 0., 0.]
+        assert isinstance(parent, RMP_linkFrame)
 
-        [child.pushforward() for child in self.children]
+        self.offset = np.array(offset)
+
+        def psi(p_x):
+            p_pos = p_x[0:3]
+            p_quat = p_x[3:7]
+            p_rotmat = quat2mat(p_quat)
+            return p_pos + np.dot(p_rotmat, self.offset)
+
+        def J(p_x):
+            return np.hstack((np.eye(3), np.zeros((3, 4))))
+
+        def J_dot(p_x, p_dx):
+            return np.zeros((3, 7))
+
+        RMP_Node.__init__(self, name, parent, psi, J, J_dot, verbose)
 
 
-# class RMP_goalControlPoint(RMP_Node):
-#
-#     def __init__(self, name, index, parent, offset=[0., 0., 0.], verbose=False):
-#         psi = lambda p_x: parent.x+
-#         J = lambda q: array_J(index, q)
-#         J_dot = lambda q, dq: array_J_dot(index, q, dq)
-#
-#         RMP_Node.__init__(self, name, parent, psi, J, J_dot, verbose)
+class RMP_oriControlPoint(RMP_Node):
+    """
+        parent = RMP_robotLinkFrame
+        x = [x, y, z]
+    """
+
+    def __init__(self, name, parent, verbose=False):
+        assert isinstance(parent, RMP_linkFrame)
+
+        def psi(p_x):
+            p_quat = p_x[3:7]
+            return p_quat
+
+        def J(p_x):
+            return np.hstack((np.zeros((4, 3)), np.eye(4)))
+
+        def J_dot(p_x, p_dx):
+            return np.zeros((4, 7))
+
+        RMP_Node.__init__(self, name, parent, psi, J, J_dot, verbose)
 
 
 class RMP_Root(RMP_Node):
@@ -142,13 +163,13 @@ class RMP_Root(RMP_Node):
         set the state of the root node for pushforward
         """
 
-        assert x.ndim == 1 or x.ndim == 2
-        assert x_dot.ndim == 1 or x_dot.ndim == 2
-
-        if x.ndim == 1:
-            x = x.reshape(-1, 1)
-        if x_dot.ndim == 1:
-            x_dot = x_dot.reshape(-1, 1)
+        # assert x.ndim == 1 or x.ndim == 2
+        # assert x_dot.ndim == 1 or x_dot.ndim == 2
+        #
+        # if x.ndim == 1:
+        #     x = x.reshape(-1, 1)
+        # if x_dot.ndim == 1:
+        #     x_dot = x_dot.reshape(-1, 1)
 
         self.x = x
         self.x_dot = x_dot
@@ -163,7 +184,7 @@ class RMP_Root(RMP_Node):
 
         [child.pushforward() for child in self.children]
 
-    def resolve(self):
+    def _resolve(self):
         """
         compute the canonical-formed RMP
         """
@@ -182,7 +203,7 @@ class RMP_Root(RMP_Node):
         self.set_root_state(x, x_dot)
         self.pushforward()
         self.pullback()
-        return self.resolve()
+        return self._resolve()
 
 
 class RMPLeaf(RMP_Node):

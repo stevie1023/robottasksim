@@ -37,7 +37,7 @@ def dynamics(t, state):
     rt.pushforward()
     [leaf.update() for leaf in iacas]
     rt.pullback()
-    x_ddot = rt.resolve()
+    x_ddot = rt._resolve()
     state_dot = np.concatenate((x_dot, x_ddot), axis=None)
     return state_dot
 
