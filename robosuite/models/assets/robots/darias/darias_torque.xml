@@ -1,17 +1,18 @@
 <mujoco model="darias">
     <compiler angle="radian" meshdir="meshes/" />
-    <size njmax="500" nconmax="100" />
+    <option timestep="0.0002" tolerance="1e-6"/>
+    <size njmax="3000" nconmax="3000" />
     <asset>
-        <mesh name="arm_base_convex" file="arm_base_convex.stl" />
-        <mesh name="arm_segment_a_convex" file="arm_segment_a_convex.stl" />
-        <mesh name="arm_segment_b_convex" file="arm_segment_b_convex.stl" />
-        <mesh name="arm_segment_last_convex" file="arm_segment_last_convex.stl" />
-        <mesh name="arm_wrist_convex" file="arm_wrist_convex.stl" />
-        <mesh name="righthandbase" file="righthandbase.stl" scale="0.001 0.001 0.001" />
-        <mesh name="finger_base" file="finger_base.stl" />
-        <mesh name="fore_proximalp" file="fore_proximalp.stl" scale="0.001 0.001 0.001" />
-        <mesh name="fore_middlep" file="fore_middlep.stl" scale="0.001 0.001 0.001" />
-        <mesh name="lefthandbase" file="lefthandbase.stl" />
+        <mesh name="arm_base_convex" file="meshes/arm_base_convex.stl" />
+        <mesh name="arm_segment_a_convex" file="meshes/arm_segment_a_convex.stl" />
+        <mesh name="arm_segment_b_convex" file="meshes/arm_segment_b_convex.stl" />
+        <mesh name="arm_segment_last_convex" file="meshes/arm_segment_last_convex.stl" />
+        <mesh name="arm_wrist_convex" file="meshes/arm_wrist_convex.stl" />
+        <mesh name="righthandbase" file="meshes/righthandbase.stl" scale="0.001 0.001 0.001" />
+        <mesh name="finger_base" file="meshes/finger_base.stl" />
+        <mesh name="fore_proximalp" file="meshes/fore_proximalp.stl" scale="0.001 0.001 0.001" />
+        <mesh name="fore_middlep" file="meshes/fore_middlep.stl" scale="0.001 0.001 0.001" />
+        <mesh name="lefthandbase" file="meshes/lefthandbase.stl" />
     </asset>
     <worldbody>
         <geom size="0.1 0.1 0.75" pos="-0.1 0 0.835" type="box" rgba="0.3 0.3 0.3 1" />

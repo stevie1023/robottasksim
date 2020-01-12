@@ -44,6 +44,14 @@ _AXES2TUPLE = {
 _TUPLE2AXES = dict((v, k) for k, v in _AXES2TUPLE.items())
 
 
+def dot2(a, b):
+    return np.dot(a, b)
+
+
+def dot3(a, b, c):
+    return np.dot(np.dot(a, b), c)
+
+
 def convert_quat(q, to="xyzw"):
     """
     Converts quaternion from one convention to another.
@@ -447,7 +455,7 @@ def cross_mat(w0):
 
 
 def getQuat(axis, angle):
-    axis=np.array(axis)
+    axis = np.array(axis)
     mag_sq = np.dot(axis, axis)
     if mag_sq == 0.0:
         raise ZeroDivisionError("Provided rotation axis has no length")
@@ -637,18 +645,13 @@ def get_orientation_error(target_orn, current_orn):
     For use in an impedance controller / task-space PD controller.
 
     Args:
-        target_orn: 4-dim iterable, desired orientation as a (x, y, z, w) quaternion
-        current_orn: 4-dim iterable, current orientation as a (x, y, z, w) quaternion
+        target_orn: 4-dim iterable, desired orientation as a (w, x, y, z) quaternion
+        current_orn: 4-dim iterable, current orientation as a (w, x, y, z) quaternion
 
     Returns:
         orn_error: 3-dim numpy array for current orientation error, corresponds to
             (target_orn - current_orn)
     """
-    current_orn = np.array(
-        [current_orn[3], current_orn[0], current_orn[1], current_orn[2]]
-    )
-    target_orn = np.array([target_orn[3], target_orn[0], target_orn[1], target_orn[2]])
-
     pinv = np.zeros((3, 4))
     pinv[0, :] = [-current_orn[1], current_orn[0], -current_orn[3], current_orn[2]]
     pinv[1, :] = [-current_orn[2], current_orn[3], current_orn[0], -current_orn[1]]

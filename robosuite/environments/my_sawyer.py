@@ -5,8 +5,35 @@ import robosuite.utils.transform_utils as T
 from robosuite.environments import MujocoEnv
 
 from robosuite.models.grippers import gripper_factory
-from robosuite.models.robots import Sawyer
 
+from robosuite.models.robots.robot import Robot
+from robosuite.utils.mjcf_utils import xml_path_completion, array_to_string
+
+
+class Sawyer(Robot):
+    """Sawyer is a witty single-arm robot designed by Rethink Robotics."""
+
+    def __init__(self):
+        super().__init__(xml_path_completion("robots/sawyer/robot_mine.xml"))
+
+        self.bottom_offset = np.array([0, 0, -0.913])
+
+    def set_base_xpos(self, pos):
+        """Places the robot on position @pos."""
+        node = self.worldbody.find("./body[@name='base']")
+        node.set("pos", array_to_string(pos - self.bottom_offset))
+
+    @property
+    def dof(self):
+        return 7
+
+    @property
+    def joints(self):
+        return ["right_j{}".format(x) for x in range(7)]
+
+    @property
+    def init_qpos(self):
+        return np.array([0, -1.18, 0.00, 2.18, 0.00, 0.57, 3.3161])
 
 class mySawyerEnv(MujocoEnv):
     """Initializes a Sawyer robot environment."""
@@ -29,48 +56,6 @@ class mySawyerEnv(MujocoEnv):
             camera_width=256,
             camera_depth=False,
     ):
-        """
-        Args:
-            gripper_type (str): type of gripper, used to instantiate
-                gripper models from gripper factory.
-
-            gripper_visualization (bool): True if using gripper visualization.
-                Useful for teleoperation.
-
-            use_indicator_object (bool): if True, sets up an indicator object that
-                is useful for debugging.
-
-            has_renderer (bool): If true, render the simulation state in
-                a viewer instead of headless mode.
-
-            has_offscreen_renderer (bool): True if using off-screen rendering.
-
-            render_collision_mesh (bool): True if rendering collision meshes
-                in camera. False otherwise.
-
-            render_visual_mesh (bool): True if rendering visual meshes
-                in camera. False otherwise.
-
-            control_freq (float): how many control signals to receive
-                in every second. This sets the amount of simulation time
-                that passes between every action input.
-
-            horizon (int): Every episode lasts for exactly @horizon timesteps.
-
-            ignore_done (bool): True if never terminating the environment (ignore @horizon).
-
-            use_camera_obs (bool): if True, every observation includes a
-                rendered image.
-
-            camera_name (str): name of camera to be rendered. Must be
-                set if @use_camera_obs is True.
-
-            camera_height (int): height of camera frame.
-
-            camera_width (int): width of camera frame.
-
-            camera_depth (bool): True if rendering RGB-D, and RGB otherwise.
-        """
 
         self.has_gripper = gripper_type is not None
         self.gripper_type = gripper_type
@@ -110,10 +95,10 @@ class mySawyerEnv(MujocoEnv):
         super()._reset_internal()
         self.sim.data.qpos[self._ref_joint_pos_indexes] = self.mujoco_robot.init_qpos
 
-        if self.has_gripper:
-            self.sim.data.qpos[
-                self._ref_joint_gripper_actuator_indexes
-            ] = self.gripper.init_qpos
+        # if self.has_gripper:
+        #     self.sim.data.qpos[
+        #         self._ref_joint_gripper_actuator_indexes
+        #     ] = self.gripper.init_qpos
 
     def _get_reference(self):
         """
@@ -169,9 +154,6 @@ class mySawyerEnv(MujocoEnv):
                 if actuator.startswith("gripper")
             ]
 
-        # IDs of sites for gripper visualization
-        self.eef_site_id = self.sim.model.site_name2id("grip_site")
-        self.eef_cylinder_id = self.sim.model.site_name2id("grip_site_cylinder")
 
     def move_indicator(self, pos):
         """
@@ -199,17 +181,8 @@ class mySawyerEnv(MujocoEnv):
         low, high = self.action_spec
         action = np.clip(action, low, high)
 
-        if self.has_gripper:
-            arm_action = action[: self.mujoco_robot.dof]
-            gripper_action_in = action[self.mujoco_robot.dof: self.mujoco_robot.dof + self.gripper.dof]
-            gripper_action_actual = self.gripper.format_action(gripper_action_in)
-            action = np.concatenate([arm_action, gripper_action_actual])
-
         # rescale normalized action to control ranges
-        ctrl_range = self.sim.model.actuator_ctrlrange
-        bias = 0.5 * (ctrl_range[:, 1] + ctrl_range[:, 0])
-        weight = 0.5 * (ctrl_range[:, 1] - ctrl_range[:, 0])
-        applied_action = bias + weight * action
+        applied_action = action
         self.sim.data.ctrl[:] = applied_action
 
         # gravity compensation
