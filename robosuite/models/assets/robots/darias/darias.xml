@@ -1,6 +1,7 @@
 <mujoco model="darias">
     <compiler angle="radian" meshdir="meshes/" />
-    <size njmax="500" nconmax="100" />
+    <option timestep="0.0002" tolerance="1e-6"/>
+    <size njmax="3000" nconmax="3000" />
     <asset>
         <mesh name="arm_base_convex" file="meshes/arm_base_convex.stl" />
         <mesh name="arm_segment_a_convex" file="meshes/arm_segment_a_convex.stl" />
@@ -45,6 +46,7 @@
                                     <inertial pos="0.000665605 0.00133386 0.067" quat="-0.0245828 0.702769 -0.0197878 0.710718" mass="1.5" diaginertia="0.00436661 0.00407968 0.00357047" />
                                     <joint name="R_WAA" pos="0 0 0" axis="0 0 1" limited="true" range="-2.96706 2.96706" damping="0.1" />
                                     <geom pos="0.00701592 -0.0199944 0.025" quat="0.707388 0.706825 0 0" type="mesh" rgba="0.953 0.996 0.694 1" mesh="righthandbase" />
+                                    <site name="sensorsurf" pos="0 0 0" size=".03 .03 .03" type="ellipsoid" rgba="0.3 0.2 0.1 0.3"/>
                                     <body name="R_SMS_link" pos="-0.0433955 -0.00100613 0.0950435" quat="0.508308 0.508699 -0.491147 0.491552">
                                         <inertial pos="0.004 0 0" quat="0.707107 0.707107 0 0" mass="0.1" diaginertia="2.24083e-05 1.85417e-05 1.42833e-05" />
                                         <joint name="R_SMS" pos="0 0 0" axis="0 0 1" limited="true" range="-0.261 0.2618" damping="0.005" />
@@ -238,4 +240,8 @@
             </body>
         </body>
     </worldbody>
+    <sensor>
+		<force name="right_endeffector_link_force"	site="sensorsurf"/>
+		<torque name="right_endeffector_link_torque"	site="sensorsurf"/>
+	</sensor>
 </mujoco>
