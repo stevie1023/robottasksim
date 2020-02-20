@@ -8,7 +8,7 @@
   <worldbody>
     <body>
       <body name="collision">
-        <geom pos="0.6 0.2 0.9" mesh="supporter_mesh" type="mesh" solimp="0.998 0.998 0.001" solref="0.001 1" density="50" friction="0.95 0.3 0.1"  material="glass" group="1" condim="4"/>
+        <geom pos="0.6 -0.15 0.93" euler="1.5708 0 0" mesh="supporter_mesh" type="mesh" solimp="0.998 0.998 0.001" solref="0.001 1" density="50" friction="0.95 0.3 0.1"  material="glass" group="1" condim="4"/>
       </body>
     </body>
   </worldbody>
