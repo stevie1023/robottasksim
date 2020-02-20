@@ -1,15 +1,46 @@
+import numpy as np
+import robosuite as suite
+from robosuite import DariasClothGrasp
+from robosuite.environments import MujocoEnv
+
 from robosuite.models.base import MujocoXML
+
 from mujoco_py import MjSim, MjRenderContextOffscreen
 from robosuite.utils import SimulationError, XMLError, MujocoPyRenderer
+
+
+from robosuite.models.tasks import ClothGrasp, UniformRandomSampler
+
 from robosuite.models.arenas.table_arena import TableArena
+from robosuite.models.objects import BoxObject
+from collections import OrderedDict
+
+
 import os
+import xml.dom.minidom
+import xml.etree.ElementTree as ET
+import io
 import numpy as np
+
+
+from robosuite.utils import XMLError
+
+from robosuite.models.robots import Darias
+
+from robosuite.environments.base import MujocoEnv
+
 import mujoco_py
-
-
+import pybullet as p
+import time
 if __name__ == "__main__":
+    fname = "/home/mingyezhu/Desktop/robottasksim/robosuite/models/assets/robots/darias/darias.xml"
 
-    fname = os.getcwd() + "/robosuite/models/assets/robots/darias/darias.xml"
+
+
+# if __name__ == "__main__":
+#
+#     fname = os.getcwd() + "/robosuite/models/assets/robots/darias/darias.xml"
+
 
     mujoco_darias = MujocoXML(fname)
 
@@ -25,21 +56,44 @@ if __name__ == "__main__":
     # The sawyer robot has a pedestal, we want to align it with the table
     # mujoco_arena.set_origin([0.16 + table_full_size[0] / 2, 0, 0])
 
-    filename_cloth = os.getcwd() + "/robosuite/models/assets/objects/cloth.xml"
 
-    filename_supporter = os.getcwd() + "/robosuite/models/assets/objects/supporter.xml"
+    filename_cloth = "/home/mingyezhu/Desktop/robottasksim/robosuite/models/assets/objects/cloth.xml"
+
+    filename_supporter = "/home/mingyezhu/Desktop/robottasksim/robosuite/models/assets/objects/supporter.xml"
     mujoco_cloth = MujocoXML(filename_cloth)
 
     mujoco_supporter = MujocoXML(filename_supporter)
-    filename_table = os.getcwd() + "/robosuite/models/assets/arenas/table_arena.xml"
+    filename_table = "/home/mingyezhu/Desktop/robottasksim/robosuite/models/assets/arenas/table_arena.xml"
     mujoco_table = MujocoXML(filename_table)
-
-    # model.merge(mujoco_cloth)
+    # model.merge(mujoco_arena)
+    model.merge(mujoco_cloth)
     model.merge(mujoco_table)
-    # model.merge(mujoco_supporter)
+    model.merge(mujoco_supporter)
+
+    env = suite.DariasClothGrasp
+    #
+    # env = suite.make(
+    #     DariasClothGrasp,
+    # )
+
 
     mjpy_model = model.get_model(mode="mujoco_py")
     sim = MjSim(mjpy_model)
+
+
+
+    viewer = MujocoPyRenderer(sim)
+
+
+
+    for i in range(50000):
+
+        sim.step()
+
+        viewer.render()
+
+    a = sim.data.sensordata
+    print(a)
 
     print('number of contacts', sim.data.ncon)
 
@@ -59,13 +113,12 @@ if __name__ == "__main__":
         print('c_array', c_array)
         mujoco_py.functions.mj_contactForce(sim.model, sim.data, i, c_array)
         print('c_array', c_array)
+    darias = p.loadURDF(fname)
+    joint_num = p.getNumJoints(darias)
 
-    viewer = MujocoPyRenderer(sim)
+    p.disconnect()
 
-    for i in range(50000):
-        sim.step()
-
-        viewer.render()
+    print("joint_num", joint_num)
 
     # darias = p.loadURDF(fname)
     # joint_num = p.getNumJoints(darias)
@@ -73,3 +126,4 @@ if __name__ == "__main__":
     # p.disconnect()
     #
     # print("joint_num", joint_num)
+

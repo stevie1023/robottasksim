@@ -11,7 +11,7 @@ from robosuite.models.tasks import MyTask, UniformRandomSampler
 
 from scipy.misc import derivative
 import copy
-from urdf2casadi import converter
+# from urdf2casadi import converter
 
 from os.path import join as pjoin
 import pybullet as p
