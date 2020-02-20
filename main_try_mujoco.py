@@ -32,6 +32,13 @@ from robosuite.environments.base import MujocoEnv
 import mujoco_py
 import pybullet as p
 import time
+
+from robosuite.utils.mjcf_utils import string_to_array
+
+
+
+
+
 if __name__ == "__main__":
     fname = "/home/mingyezhu/Desktop/robottasksim/robosuite/models/assets/robots/darias/darias.xml"
 
@@ -89,41 +96,34 @@ if __name__ == "__main__":
     for i in range(50000):
 
         sim.step()
-
         viewer.render()
+        if i % 100 == 0:
+            a = sim.data.sensordata
+
+            print(a)
+
+            Rotation_matrix = sim.data.body_xmat[6].reshape([3, 3])
+            Translation_matrix = sim.data.body_xpos[6].reshape([3, 1])
+
+            print("Rotation_matrix ", Rotation_matrix)
+            print('Translation_matrix ', Translation_matrix)
+
+            T1 = np.concatenate((Rotation_matrix, Translation_matrix), axis=1)
+
+            T2 = np.array([[0, 0, 0, 1]])
+            T = np.concatenate((T1, T2), axis=0)
+            print('T ', T)
+
+
+
+
 
     a = sim.data.sensordata
-    print(a)
 
-    print('number of contacts', sim.data.ncon)
-
-    for i in range(sim.data.ncon):
-        contact = sim.data.contact[i]
-        print('contact', i)
-        print('dist', contact.dist)
-        print('geom1', contact.geom1, sim.model.geom_id2name(contact.geom1))
-        print('geom2', contact.geom2, sim.model.geom_id2name(contact.geom2))
-        # There's more stuff in the data structure
-        # See the mujoco documentation for more info!
-        geom2_body = sim.model.geom_bodyid[sim.data.contact[i].geom2]
-        print(' Contact force on geom2 body', sim.data.cfrc_ext[geom2_body])
-        print('norm', np.sqrt(np.sum(np.square(sim.data.cfrc_ext[geom2_body]))))
-        # Use internal functions to read out mj_contactForce
-        c_array = np.zeros(6, dtype=np.float64)
-        print('c_array', c_array)
-        mujoco_py.functions.mj_contactForce(sim.model, sim.data, i, c_array)
-        print('c_array', c_array)
-    darias = p.loadURDF(fname)
-    joint_num = p.getNumJoints(darias)
-
-    p.disconnect()
-
-    print("joint_num", joint_num)
-
-    # darias = p.loadURDF(fname)
-    # joint_num = p.getNumJoints(darias)
+    # viewer.render()
     #
-    # p.disconnect()
-    #
-    # print("joint_num", joint_num)
+    # body_name_right = "right_endeffector_link"
+    # current_position = sim.data.body_xpos[sim.model.body_name2id(body_name_right)]
+    # print("the right eef pos:", current_position)
+   # print(a)
 
